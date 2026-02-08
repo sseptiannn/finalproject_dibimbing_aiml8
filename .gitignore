@@ -8,10 +8,6 @@ venv/
 
 # Jupyter
 .ipynb_checkpoints/
-# test
-# Data (opsional)
-data/
-*.csv
 
 # Mac
 .DS_Store
