@@ -11,7 +11,7 @@ from src.evaluation import ModelEvaluation
 
 def main():
 
-    print("========== LOADING DATA ==========")
+    print("LOAD DATA & PREPROCESSING")
 
     data_path = "data/loan_data.csv"
     model_path = "models"
@@ -23,21 +23,18 @@ def main():
 
     print("Data shape:", df.shape)
 
-    # =========================
     # FEATURE ENGINEERING
-    # =========================
-    print("\n========== FEATURE ENGINEERING ==========")
+    print("\nFEATURE ENGINEERING")
     df = preprocessor.feature_engineering(df)
 
-    # =========================
+    
     # CLUSTERING
-    # =========================
-    print("\n========== TRAINING CLUSTERING MODEL ==========")
+    print("\nTRAINING CLUSTERING MODEL")
 
     X_cluster = preprocessor.select_features_for_clustering(df)
     X_scaled = preprocessor.scale(X_cluster)
 
-    clustering_model = CustomerClustering(n_clusters=3)
+    clustering_model = CustomerClustering(n_clusters=5)
     cluster_labels = clustering_model.train(X_scaled)
 
     df["Cluster"] = cluster_labels
@@ -51,10 +48,8 @@ def main():
 
     print("Clustering model saved.")
 
-    # =========================
     # RISK MODEL (SUPERVISED)
-    # =========================
-    print("\n========== TRAINING RISK MODEL ==========")
+    print("\nTRAINING RISK MODEL")
 
     X_risk = X_cluster
     y_risk = df["PreviousLoanDefaults"]
@@ -84,7 +79,7 @@ def main():
 
     print("Risk model saved.")
 
-    print("\n========== TRAINING COMPLETED SUCCESSFULLY ==========")
+    print("\nTRAINING COMPLETED")
 
 
 if __name__ == "__main__":
