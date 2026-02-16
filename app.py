@@ -176,9 +176,23 @@ if st.session_state.result_json is not None:
     st.divider()
     st.header("📈 Analysis Result")
 
-    st.subheader(f"Customer Segment: {st.session_state.cluster_info['title']}")
-    st.write(st.session_state.cluster_info["description"])
-    st.info(f"Business Recommendation: {st.session_state.cluster_info['recommendation']}")
+    cluster_id = st.session_state.result_json["cluster_result"]["cluster_id"]
+    cluster_info = st.session_state.cluster_info
+
+    with st.container(border=True):
+
+        if cluster_id == 0:
+            st.markdown("### 🟢 Stable Borrower")
+
+        elif cluster_id == 1:
+            st.markdown("### 🟡 Moderate Risk Customer")
+
+        elif cluster_id == 2:
+            st.markdown("### 🔴 High Risk / High Utilization")
+
+        st.write(cluster_info["description"])
+        st.markdown(f"**Business Recommendation:** {cluster_info['recommendation']}")
+
 
     st.subheader("Default Risk Assessment")
 
@@ -189,15 +203,16 @@ if st.session_state.result_json is not None:
 
     st.metric("Default Probability", f"{st.session_state.risk_prob:.2%}")
 
-    st.subheader("📦 Model Output (JSON)")
-    st.json(st.session_state.result_json)
+    with st.expander("📦 Model Output (JSON) - Click to Show/Hide"):
+        st.json(st.session_state.result_json)
 
-    st.download_button(
-        label="⬇ Download Result as JSON",
-        data=json.dumps(st.session_state.result_json, indent=4),
-        file_name="customer_analysis.json",
-        mime="application/json"
-    )
+        st.download_button(
+            label="⬇ Download Result as JSON",
+            data=json.dumps(st.session_state.result_json, indent=4),
+            file_name="customer_analysis.json",
+            mime="application/json"
+        )
+
 
     # st.write("Cluster ID:", cluster)
     # st.write("Risk Prediction:", risk_pred)
