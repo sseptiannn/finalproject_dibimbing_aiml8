@@ -34,7 +34,7 @@ def main():
     X_cluster = preprocessor.select_features_for_clustering(df)
     X_scaled = preprocessor.scale(X_cluster)
 
-    clustering_model = CustomerClustering(n_clusters=5)
+    clustering_model = CustomerClustering(n_clusters=3)
     cluster_labels = clustering_model.train(X_scaled)
 
     df["Cluster"] = cluster_labels

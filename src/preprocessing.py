@@ -12,7 +12,7 @@ class DataPreprocessor:
         df = df.copy()
 
         # Behavior-based features
-        df["payment_ratio"] = df["MonthlyLoanPayment"] / df["MonthlyIncome"]
+        df["payment_ratio"] = df["MonthlyLoanPayment"] / (df["MonthlyIncome"] + 1e-6)
         df["debt_income_ratio"] = df["TotalDebtToIncomeRatio"]
         df["credit_utilization"] = df["CreditCardUtilizationRate"]
 
