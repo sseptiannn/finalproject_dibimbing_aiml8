@@ -33,27 +33,40 @@ def generate_llm_recommendation(result_json):
 
     {json_string}
 
-    Please provide:
+    Provide:
     1. Risk interpretation
     2. Business recommendation
     3. Suggested loan strategy
     4. Risk mitigation advice
 
-    Keep it professional, clear, and concise.
+    Keep it professional and concise.
     """
 
     response = ollama.chat(
         model="llama3",  # ganti ke "phi3" kalau mau lebih ringan
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
+        messages=[{"role": "user", "content": prompt}]
     )
 
     return response["message"]["content"]
 
 
+# =========================
+# INITIALIZE SESSION STATE
+# =========================
+if "result_json" not in st.session_state:
+    st.session_state.result_json = None
+    st.session_state.cluster_info = None
+    st.session_state.risk_pred = None
+    st.session_state.risk_prob = None
+    st.session_state.llm_output = None
+
+
+# =========================
+# UI HEADER
+# =========================
 st.title("💳 Customer Segmentation & Default Risk Analysis")
 st.write("Analyze customer loan behavior and assess default risk.")
+
 
 # =========================
 # CLUSTER DEFINITIONS
@@ -89,26 +102,31 @@ for cid, info in cluster_descriptions.items():
 st.divider()
 
 # =========================
-# INPUT FORM
+# INPUT FORM (STABLE VERSION)
 # =========================
 st.header("📝 Input Customer Financial Data")
 
-col1, col2 = st.columns(2)
+with st.form("customer_form"):
 
-with col1:
-    monthly_income = st.number_input("Monthly Income", min_value=0.0, value=8000000.0)
-    monthly_payment = st.number_input("Monthly Loan Payment", min_value=0.0, value=2000000.0)
-    debt_ratio = st.slider("Debt to Income Ratio", 0.0, 1.0, 0.3)
+    col1, col2 = st.columns(2)
 
-with col2:
-    credit_util = st.slider("Credit Utilization Rate", 0.0, 1.0, 0.4)
-    prev_defaults = st.selectbox("Previous Loan Defaults", [0, 1])
-    payment_history = st.slider("Payment History Score", 0, 100, 80)
+    with col1:
+        monthly_income = st.number_input("Monthly Income", min_value=0.0, value=8000000.0)
+        monthly_payment = st.number_input("Monthly Loan Payment", min_value=0.0, value=2000000.0)
+        debt_ratio = st.slider("Debt to Income Ratio", 0.0, 1.0, 0.3)
+
+    with col2:
+        credit_util = st.slider("Credit Utilization Rate", 0.0, 1.0, 0.4)
+        prev_defaults = st.selectbox("Previous Loan Defaults", [0, 1])
+        payment_history = st.slider("Payment History Score", 0, 100, 80)
+
+    submitted = st.form_submit_button("🔍 Analyze Customer")
+
 
 # =========================
-# ANALYZE BUTTON
+# ANALYSIS PROCESS
 # =========================
-if st.button("🔍 Analyze Customer"):
+if submitted:
 
     payment_ratio = monthly_payment / monthly_income if monthly_income != 0 else 0
 
@@ -142,36 +160,34 @@ if st.button("🔍 Analyze Customer"):
         }
     }
 
-    # SAVE TO SESSION
+    # overwrite session safely
     st.session_state.result_json = result_json
     st.session_state.cluster_info = cluster_info
     st.session_state.risk_pred = risk_pred
     st.session_state.risk_prob = risk_prob
+    st.session_state.llm_output = None  # reset LLM output
+
 
 # =========================
-# DISPLAY RESULTS (IF AVAILABLE)
+# DISPLAY RESULTS
 # =========================
-if "result_json" in st.session_state:
+if st.session_state.result_json is not None:
 
     st.divider()
     st.header("📈 Analysis Result")
 
-    cluster_info = st.session_state.cluster_info
-    risk_pred = st.session_state.risk_pred
-    risk_prob = st.session_state.risk_prob
-
-    st.subheader(f"Customer Segment: {cluster_info['title']}")
-    st.write(cluster_info["description"])
-    st.info(f"Business Recommendation: {cluster_info['recommendation']}")
+    st.subheader(f"Customer Segment: {st.session_state.cluster_info['title']}")
+    st.write(st.session_state.cluster_info["description"])
+    st.info(f"Business Recommendation: {st.session_state.cluster_info['recommendation']}")
 
     st.subheader("Default Risk Assessment")
 
-    if risk_pred == 1:
+    if st.session_state.risk_pred == 1:
         st.error("⚠ High Default Risk")
     else:
         st.success("✅ Low Default Risk")
 
-    st.metric("Default Probability", f"{risk_prob:.2%}")
+    st.metric("Default Probability", f"{st.session_state.risk_prob:.2%}")
 
     st.subheader("📦 Model Output (JSON)")
     st.json(st.session_state.result_json)
@@ -183,6 +199,11 @@ if "result_json" in st.session_state:
         mime="application/json"
     )
 
+    # st.write("Cluster ID:", cluster)
+    # st.write("Risk Prediction:", risk_pred)
+    # st.write("Risk Probability:", risk_prob)
+
+
     # =========================
     # AI INTERPRETATION
     # =========================
@@ -192,8 +213,9 @@ if "result_json" in st.session_state:
     if st.button("Generate AI Recommendation"):
 
         with st.spinner("Generating AI insight..."):
-            llm_output = generate_llm_recommendation(
+            st.session_state.llm_output = generate_llm_recommendation(
                 st.session_state.result_json
             )
 
-        st.markdown(llm_output)
+    if st.session_state.llm_output is not None:
+        st.markdown(st.session_state.llm_output)
