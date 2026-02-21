@@ -1,7 +1,7 @@
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
-class CustomerClustering:
+class CustomerClusteringKMeans:
     def __init__(self, n_clusters=3):
         self.model = KMeans(n_clusters=n_clusters, random_state=42)
 

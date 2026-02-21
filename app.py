@@ -166,9 +166,9 @@ if st.session_state.result_json is not None:
     for cname, info in st.session_state.result_json["clustering_results"].items():
         st.markdown(f"### 🏷 Model: {cname}")
         col1, col2 = st.columns([1,2])
+        # with col1:
+        #     st.metric("Cluster ID", info["cluster_id"])
         with col1:
-            st.metric("Cluster ID", info["cluster_id"])
-        with col2:
             st.markdown(f"**Cluster Name:** {info['cluster_name']}")
             st.markdown(f"**Description:** {info['description']}")
             st.markdown(f"**Business Recommendation:** {info['recommendation']}")
