@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 
 from src.preprocessing import DataPreprocessor
 from src.clustering import CustomerClustering
+from src.clustering_gmm import CustomerClusteringGMM
 from src.risk_model import RiskModel
 from src.evaluation import ModelEvaluation
 
@@ -18,67 +19,107 @@ def main():
 
     os.makedirs(model_path, exist_ok=True)
 
+    # =========================
+    # LOAD & FEATURE ENGINEERING
+    # =========================
     preprocessor = DataPreprocessor()
     df = preprocessor.load_data(data_path)
 
     print("Data shape:", df.shape)
 
-    # FEATURE ENGINEERING
     print("\nFEATURE ENGINEERING")
     df = preprocessor.feature_engineering(df)
 
-    
-    # CLUSTERING
+    # =========================
+    # CLUSTERING SECTION
+    # =========================
     print("\nTRAINING CLUSTERING MODEL")
 
     X_cluster = preprocessor.select_features_for_clustering(df)
     X_scaled = preprocessor.scale(X_cluster)
 
-    clustering_model = CustomerClustering(n_clusters=3)
-    cluster_labels = clustering_model.train(X_scaled)
+    clustering_models = {
+        "kmeans": CustomerClustering(n_clusters=3),
+        "gmm": CustomerClusteringGMM(n_clusters=3),
+    }
 
-    df["Cluster"] = cluster_labels
+    best_cluster_score = -1
+    best_cluster_model = None
+    best_cluster_name = None
+    best_labels = None
 
-    sil_score = ModelEvaluation.evaluate_clustering(X_scaled, cluster_labels)
-    print(f"Silhouette Score: {sil_score:.4f}")
+    for name, model in clustering_models.items():
+        print(f"\nTraining clustering: {name}")
+
+        labels = model.train(X_scaled)
+        sil_score = ModelEvaluation.evaluate_clustering(X_scaled, labels)
+
+        print(f"{name} Silhouette Score: {sil_score:.4f}")
+
+        if sil_score > best_cluster_score:
+            best_cluster_score = sil_score
+            best_cluster_model = model
+            best_cluster_name = name
+            best_labels = labels
+
+    print(f"\nBest clustering model: {best_cluster_name}")
+
+    df["Cluster"] = best_labels
 
     # Save clustering model & scaler
-    joblib.dump(clustering_model.model, os.path.join(model_path, "kmeans.pkl"))
+    joblib.dump(best_cluster_model.model, os.path.join(model_path, "clustering_model.pkl"))
     joblib.dump(preprocessor.scaler, os.path.join(model_path, "scaler.pkl"))
 
     print("Clustering model saved.")
 
-    # RISK MODEL (SUPERVISED)
-    print("\nTRAINING RISK MODEL")
+    # =========================
+    # RISK MODEL SECTION
+    # =========================
+    print("\nTRAINING RISK MODELS")
 
     X_risk = X_cluster
     y_risk = df["PreviousLoanDefaults"]
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X_risk, y_risk,
+        X_risk,
+        y_risk,
         test_size=0.2,
         random_state=42,
         stratify=y_risk
     )
 
-    risk_model = RiskModel()
-    risk_model.train(X_train, y_train)
+    models_to_try = ["logreg", "rf", "xgb"]
 
-    y_pred = risk_model.predict(X_test)
-    y_prob = risk_model.predict_proba(X_test)
+    best_score = 0
+    best_model = None
+    best_model_name = None
 
-    report, roc_score = ModelEvaluation.evaluate_classification(
-        y_test, y_pred, y_prob
-    )
+    for m in models_to_try:
+        print(f"\nTraining risk model: {m}")
 
-    print("\nClassification Report:")
-    print(report)
-    print(f"ROC-AUC Score: {roc_score:.4f}")
+        risk_model = RiskModel(model_type=m)
+        risk_model.train(X_train, y_train)
 
-    joblib.dump(risk_model.model, os.path.join(model_path, "risk_model.pkl"))
+        y_pred = risk_model.predict(X_test)
+        y_prob = risk_model.predict_proba(X_test)
+
+        report, roc_score = ModelEvaluation.evaluate_classification(
+            y_test, y_pred, y_prob
+        )
+
+        print(report)
+        print(f"{m} ROC-AUC: {roc_score:.4f}")
+
+        if roc_score > best_score:
+            best_score = roc_score
+            best_model = risk_model
+            best_model_name = m
+
+    print(f"\nBest risk model: {best_model_name}")
+
+    joblib.dump(best_model.model, os.path.join(model_path, "risk_model.pkl"))
 
     print("Risk model saved.")
-
     print("\nTRAINING COMPLETED")
 
 

@@ -12,3 +12,4 @@ venv/
 # Mac
 .DS_Store
 notebooks/1_proses_eda.ipynb
+*.png
