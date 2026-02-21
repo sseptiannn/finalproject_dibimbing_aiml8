@@ -13,6 +13,5 @@ This project focuses on:
 
 Tech Stack:
 - Python, Scikit-learn
-- MLflow (experiment tracking)
 - Streamlit (demo app)
-- Docker (optional deployment)
+- Ollama (AI Interpretation
