@@ -9,7 +9,7 @@ import os
 # PAGE CONFIG
 # =========================
 st.set_page_config(
-    page_title="Customer Segmentation & Multi-Model Risk Dashboard",
+    page_title="Customer Segmentation & Risk Analysis",
     layout="wide"
 )
 
@@ -92,8 +92,8 @@ if "result_json" not in st.session_state:
 # =========================
 # UI HEADER
 # =========================
-st.title("💳 Customer Segmentation & Multi-Model Risk Dashboard")
-st.write("Analyze customer loan behavior using multiple risk models.")
+st.title("AI-Powered Customer Segmentation & Default Risk Intelligence System")
+st.write("Analyze customer loan behavior and assess default risk. Input financial data to receive segmentation insights and risk predictions, along with AI-generated recommendations for credit strategies.")
 
 # =========================
 # INPUT FORM

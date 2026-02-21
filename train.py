@@ -36,7 +36,7 @@ def main():
     X_scaled = preprocessor.scale(X_cluster)
 
     clustering_models = {
-        "kmeans": CustomerClusteringKMeans(n_clusters=3),
+        "kmeans": CustomerClusteringKMeans(n_clusters=2),
         "gmm": CustomerClusteringGMM(n_clusters=3),
     }
 
