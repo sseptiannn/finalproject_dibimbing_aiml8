@@ -1,6 +1,6 @@
 import streamlit as st
 import joblib
-import numpy as np
+import pandas as pd
 import json
 import os
 
@@ -11,6 +11,7 @@ try:
 except Exception:
     OLLAMA_AVAILABLE = False
 
+
 # =========================
 # PAGE CONFIG
 # =========================
@@ -19,34 +20,32 @@ st.set_page_config(
     layout="wide"
 )
 
+
 # =========================
 # LOAD MODELS
 # =========================
 model_path = "models"
 
-# ---- Load clustering models
 clustering_models = {}
 for f in os.listdir(model_path):
     if "clustering_model" in f and f.endswith(".pkl"):
         name = f.replace(".pkl", "")
         clustering_models[name] = joblib.load(os.path.join(model_path, f))
 
-# ---- Load scaler
 scaler = joblib.load(os.path.join(model_path, "scaler.pkl"))
 
-# ---- Load risk models
 risk_models = {}
 for f in os.listdir(model_path):
     if f.startswith("risk_model_") and f.endswith(".pkl"):
         name = f.replace(".pkl", "")
         risk_models[name] = joblib.load(os.path.join(model_path, f))
 
+
 # =========================
-# CLUSTER DESCRIPTIONS (PER MODEL)
+# CLUSTER DESCRIPTIONS
 # =========================
 cluster_descriptions = {
 
-    # ===== KMEANS (2 CLUSTERS) =====
     "clustering_model_kmeans": {
         0: {
             "title": "Stable Borrower",
@@ -60,7 +59,6 @@ cluster_descriptions = {
         }
     },
 
-    # ===== GMM (3 CLUSTERS) =====
     "clustering_model_gmm": {
         0: {
             "title": "Low Risk Segment",
@@ -80,12 +78,14 @@ cluster_descriptions = {
     }
 }
 
+
 # =========================
 # LLM FUNCTION
 # =========================
 def generate_llm_recommendation(result_json):
+
     if not OLLAMA_AVAILABLE:
-        return "⚠️ Ollama is not installed in this environment."
+        return "⚠️ Ollama is not installed."
 
     json_string = json.dumps(result_json, indent=2)
 
@@ -101,15 +101,15 @@ Provide:
 2. Business recommendation
 3. Suggested loan strategy
 4. Risk mitigation advice
-
-Keep it professional and concise.
 """
 
     response = ollama.chat(
         model="llama3",
         messages=[{"role": "user", "content": prompt}]
     )
+
     return response["message"]["content"]
+
 
 # =========================
 # SESSION STATE
@@ -118,14 +118,16 @@ if "result_json" not in st.session_state:
     st.session_state.result_json = None
     st.session_state.llm_output = None
 
+
 # =========================
 # HEADER
 # =========================
 st.title("AI-Powered Customer Segmentation & Default Risk Intelligence System")
+
 st.write(
-    "Analyze customer loan behavior and assess default risk. "
-    "Input financial data to receive segmentation insights and risk predictions."
+    "Analyze customer loan behavior and assess default risk."
 )
+
 
 # =========================
 # INPUT FORM
@@ -133,6 +135,7 @@ st.write(
 st.header("📝 Input Customer Financial Data")
 
 with st.form("customer_form"):
+
     col1, col2 = st.columns(2)
 
     with col1:
@@ -147,34 +150,42 @@ with st.form("customer_form"):
 
     submitted = st.form_submit_button("🔍 Analyze Customer")
 
+
 # =========================
 # ANALYSIS
 # =========================
 if submitted:
-    payment_ratio = monthly_payment / monthly_income if monthly_income != 0 else 0
 
-    processed_features = {
-        "payment_ratio": payment_ratio,
-        "debt_income_ratio": debt_ratio,
-        "credit_utilization": credit_util,
-        "PreviousLoanDefaults": prev_defaults,
-        "PaymentHistory": payment_history
-    }
+    # =========================
+    # FEATURE ENGINEERING
+    # =========================
+    payment_ratio = monthly_payment / (monthly_income + 1e-6)
 
-    sample = np.array([list(processed_features.values())])
-    sample_scaled = scaler.transform(sample)
+    cluster_df = pd.DataFrame({
+        "payment_ratio": [payment_ratio],
+        "debt_income_ratio": [debt_ratio],
+        "credit_utilization": [credit_util],
+        "PreviousLoanDefaults": [prev_defaults],
+        "PaymentHistory": [payment_history]
+    })
+
+    sample_scaled = scaler.transform(cluster_df)
 
     result_json = {
-        "input_features": processed_features,
         "clustering_results": {},
         "risk_results": {}
     }
 
-    # ===== CLUSTERING =====
-    for cname, cmodel in clustering_models.items():
-        cluster_id = int(cmodel.predict(sample_scaled)[0])
+    # =========================
+    # CLUSTERING
+    # =========================
+    cluster_values = {}
 
-        # 🔥 IMPORTANT FIX (per-model description)
+    for cname, cmodel in clustering_models.items():
+
+        cluster_id = int(cmodel.predict(sample_scaled)[0])
+        cluster_values[cname] = cluster_id
+
         model_desc = cluster_descriptions.get(cname, {})
         desc = model_desc.get(cluster_id, {})
 
@@ -185,10 +196,28 @@ if submitted:
             "recommendation": desc.get("recommendation", "")
         }
 
-    # ===== RISK MODELS =====
+    # gunakan cluster dari model pertama
+    best_cluster = list(cluster_values.values())[0]
+
+    # =========================
+    # RISK MODEL INPUT
+    # =========================
+    risk_df = pd.DataFrame({
+        "MonthlyLoanPayment": [monthly_payment],
+        "MonthlyIncome": [monthly_income],
+        "TotalDebtToIncomeRatio": [debt_ratio],
+        "CreditCardUtilizationRate": [credit_util],
+        "PaymentHistory": [payment_history],
+        "Cluster": [best_cluster]
+    })
+
+    # =========================
+    # RISK MODELS
+    # =========================
     for rname, rmodel in risk_models.items():
-        risk_pred = int(rmodel.predict(sample)[0])
-        risk_prob = float(rmodel.predict_proba(sample)[0][1])
+
+        risk_pred = int(rmodel.predict(risk_df)[0])
+        risk_prob = float(rmodel.predict_proba(risk_df)[0][1])
 
         result_json["risk_results"][rname] = {
             "prediction": risk_pred,
@@ -198,17 +227,19 @@ if submitted:
     st.session_state.result_json = result_json
     st.session_state.llm_output = None
 
+
 # =========================
 # DISPLAY RESULTS
 # =========================
 if st.session_state.result_json is not None:
+
     st.divider()
     st.header("📊 Customer Analysis Results")
 
-    # ===== CLUSTERING =====
     st.subheader("Segmentation per Model")
 
     for cname, info in st.session_state.result_json["clustering_results"].items():
+
         pretty_name = cname.replace("clustering_model_", "").upper()
 
         st.markdown(f"### 🏷 Model: {pretty_name}")
@@ -225,19 +256,22 @@ if st.session_state.result_json is not None:
 
     st.divider()
 
-    # ===== RISK =====
     st.subheader("Default Risk per Model")
 
     for rname, info in st.session_state.result_json["risk_results"].items():
+
         label = "⚠ High Default Risk" if info["prediction"] == 1 else "✅ Low Default Risk"
+
         st.metric(rname, label)
+
         st.markdown(f"**Probability:** {info['default_probability']:.2%}")
 
     st.divider()
 
-    # ===== JSON =====
     with st.expander("📦 Full JSON Output"):
+
         st.json(st.session_state.result_json)
+
         st.download_button(
             label="⬇ Download Result as JSON",
             data=json.dumps(st.session_state.result_json, indent=4),
@@ -245,12 +279,13 @@ if st.session_state.result_json is not None:
             mime="application/json"
         )
 
-    # ===== LLM =====
     st.divider()
     st.header("🤖 AI Interpretation")
 
     if st.button("Generate AI Recommendation"):
+
         with st.spinner("Generating AI insight..."):
+
             st.session_state.llm_output = generate_llm_recommendation(
                 st.session_state.result_json
             )
