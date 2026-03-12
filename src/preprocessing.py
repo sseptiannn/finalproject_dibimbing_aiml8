@@ -1,9 +1,11 @@
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
+# from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import RobustScaler
 
 class DataPreprocessor:
     def __init__(self):
-        self.scaler = StandardScaler()
+        # self.scaler = StandardScaler()
+        self.scaler = RobustScaler()
 
     def load_data(self, path: str):
         return pd.read_csv(path)
